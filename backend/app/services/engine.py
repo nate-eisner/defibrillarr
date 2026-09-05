@@ -189,18 +189,29 @@ class DefibrillarrEngine:
             servarr_queue_id = servarr_match[0].id if servarr_match else None
 
             rec = self.stalled_records.get(t_hash)
-            state = DefibrillarrState.HEALTHY
-            status_msg = "Operating normally"
             first_stalled = None
             boosted_at = None
             grace_expires = None
 
-            if rec:
+            is_complete = (
+                t.progress >= 1.0 or
+                t.state in ("uploading", "stalledUP", "pausedUP", "forcedUP", "queuedUP")
+            )
+
+            if is_complete:
+                state = DefibrillarrState.COMPLETED
+                status_msg = "Download 100% complete"
+                if t_hash in self.stalled_records:
+                    del self.stalled_records[t_hash]
+            elif rec:
                 state = rec.state
                 first_stalled = rec.first_stalled_at
                 boosted_at = rec.boosted_at
                 grace_expires = rec.grace_period_expires_at
                 status_msg = rec.status_message
+            else:
+                state = DefibrillarrState.HEALTHY
+                status_msg = "Operating normally"
 
             unified_list.append(
                 UnifiedTorrentItem(
@@ -252,11 +263,13 @@ class DefibrillarrEngine:
             servarr_queue_id = servarr_match[0].id if servarr_match else None
             raw_record = servarr_match[1] if servarr_match else None
 
-            # Check if download is complete (seeding / completed)
-            if t.progress >= 1.0 or t.state in ("uploading", "stalledUP", "pausedUP"):
+            # Check if download is 100% complete (seeding / completed) - ignore and mark complete
+            if t.progress >= 1.0 or t.state in ("uploading", "stalledUP", "pausedUP", "forcedUP", "queuedUP"):
                 if t_hash in self.stalled_records:
-                    logger.info(f"Torrent '{t.name}' completed! Removing from stalled records.")
+                    logger.info(f"Torrent '{t.name}' is 100% complete! Removed from stalled records.")
                     del self.stalled_records[t_hash]
+                if t_hash in self.last_boosted_timestamps:
+                    del self.last_boosted_timestamps[t_hash]
                 continue
 
             # Check Periodic Cadence Auto-Boost
@@ -296,11 +309,13 @@ class DefibrillarrEngine:
                     del self.stalled_records[t_hash]
                 continue
 
-            # If here, download is stalled or slow
-            # States: stalledDL, metaDL, allocating, queuedDL, or speed < min threshold with 0 seeds
+            # If here, download is incomplete (progress < 1.0) and stalled or slow
             is_stalled = (
-                t.state in ("stalledDL", "metaDL", "allocating") or
-                (dlspeed_kbps < self.config.MIN_DOWNLOAD_SPEED_KBPS and t.num_seeds == 0)
+                t.progress < 1.0 and
+                (
+                    t.state in ("stalledDL", "metaDL", "allocating") or
+                    (dlspeed_kbps < self.config.MIN_DOWNLOAD_SPEED_KBPS and t.num_seeds == 0)
+                )
             )
 
             if not is_stalled:
@@ -457,6 +472,7 @@ class DefibrillarrEngine:
         healthy = sum(1 for q in queue if q.defibrillarr_state == DefibrillarrState.HEALTHY)
         stalled = sum(1 for q in queue if q.defibrillarr_state in (DefibrillarrState.STALLED, DefibrillarrState.PROBATION_EXPIRED))
         boosting = sum(1 for q in queue if q.defibrillarr_state == DefibrillarrState.BOOSTING)
+        completed = sum(1 for q in queue if q.defibrillarr_state == DefibrillarrState.COMPLETED)
 
         return SystemOverview(
             services=health,
@@ -464,6 +480,7 @@ class DefibrillarrEngine:
             healthy_count=healthy,
             stalled_count=stalled,
             boosting_count=boosting,
+            completed_count=completed,
             cached_trackers_count=len(self.trackers.get_trackers()),
             dry_run=self.config.DRY_RUN
         )

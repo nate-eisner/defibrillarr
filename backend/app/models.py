@@ -14,6 +14,7 @@ class DefibrillarrState(str, Enum):
     BOOSTING = "boosting"
     PROBATION_EXPIRED = "probation_expired"
     FAILED_OVER = "failed_over"
+    COMPLETED = "completed"
 
 class TorrentInfo(BaseModel):
     hash: str
@@ -74,6 +75,7 @@ class SystemOverview(BaseModel):
     healthy_count: int
     stalled_count: int
     boosting_count: int
+    completed_count: int = 0
     cached_trackers_count: int
     dry_run: bool
 

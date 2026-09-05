@@ -133,3 +133,57 @@ async def test_engine_cadence_autoboost():
     assert "Periodic auto-boost" in engine.history[0].details
 
     await engine.stop()
+
+@pytest.mark.asyncio
+async def test_engine_ignores_100_percent_completed_stalled_items():
+    config = Settings(
+        DRY_RUN=True,
+        STALL_THRESHOLD_MINUTES=1,
+        AUTO_FAILOVER_ENABLED=True
+    )
+    tracker_service = TrackerService(urls=[])
+    engine = DefibrillarrEngine(config=config, tracker_service=tracker_service)
+
+    # 100% complete torrent sitting in stalledUP (finished seeding, 0 B/s)
+    completed_stalled_torrent = TorrentInfo(
+        hash="complete12345678",
+        name="Finished.Movie.2024.1080p",
+        state="stalledUP",
+        progress=1.0,
+        dlspeed=0,
+        upspeed=0,
+        eta=86400,
+        num_seeds=0,
+        num_leechs=0,
+        added_on=1600000000
+    )
+
+    # Pre-populate stalled_records to test that it gets removed
+    rec = StalledRecord(completed_stalled_torrent.hash)
+    engine.stalled_records[completed_stalled_torrent.hash] = rec
+
+    async def mock_get_torrents(filter_type="all"):
+        return [completed_stalled_torrent]
+
+    engine.qbit.get_torrents = mock_get_torrents
+
+    # Run cycle
+    await engine.run_cycle()
+
+    # Must be removed from stalled records!
+    assert completed_stalled_torrent.hash not in engine.stalled_records
+    # History must NOT contain failover or boost for 100% complete items
+    assert len(engine.history) == 0
+
+    # In get_unified_queue it must be marked as COMPLETED
+    queue = await engine.get_unified_queue()
+    assert len(queue) == 1
+    assert queue[0].defibrillarr_state == DefibrillarrState.COMPLETED
+    assert "100% complete" in queue[0].status_message
+
+    # Overview count check
+    overview = await engine.get_overview()
+    assert overview.stalled_count == 0
+    assert overview.completed_count == 1
+
+    await engine.stop()
