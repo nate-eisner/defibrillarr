@@ -13,6 +13,7 @@ from app.models import (
     UnifiedTorrentItem,
     HistoryEvent,
     ManualActionRequest,
+    CadenceUpdateRequest,
 )
 from app.services.tracker_service import TrackerService
 from app.services.engine import DefibrillarrEngine
@@ -128,12 +129,26 @@ async def get_config():
         "RESCUE_GRACE_PERIOD_MINUTES": settings.RESCUE_GRACE_PERIOD_MINUTES,
         "MIN_DOWNLOAD_SPEED_KBPS": settings.MIN_DOWNLOAD_SPEED_KBPS,
         "AUTO_FAILOVER_ENABLED": settings.AUTO_FAILOVER_ENABLED,
+        "AUTO_BOOST_CADENCE_MINUTES": settings.AUTO_BOOST_CADENCE_MINUTES,
         "QBIT_URL": settings.QBIT_URL,
         "QBIT_USERNAME": settings.QBIT_USERNAME,
         "SONARR_CONFIGURED": bool(settings.SONARR_URL and settings.SONARR_API_KEY),
         "RADARR_CONFIGURED": bool(settings.RADARR_URL and settings.RADARR_API_KEY),
         "LIDARR_CONFIGURED": bool(settings.LIDARR_URL and settings.LIDARR_API_KEY),
         "TRACKER_LISTS_COUNT": len(settings.TRACKER_LIST_URLS)
+    }
+
+@app.post("/api/config/cadence")
+async def update_cadence(req: CadenceUpdateRequest):
+    """Updates the automatic tracker boost cadence (in minutes). 0 = disabled."""
+    cadence = max(0, req.cadence_minutes)
+    settings.AUTO_BOOST_CADENCE_MINUTES = cadence
+    engine.config.AUTO_BOOST_CADENCE_MINUTES = cadence
+    logger.info(f"Auto-boost cadence updated to {cadence} minutes")
+    return {
+        "status": "success",
+        "cadence_minutes": cadence,
+        "message": f"Auto-boost cadence set to {cadence} minutes" if cadence > 0 else "Auto-boost cadence disabled"
     }
 
 # Serve static web dashboard

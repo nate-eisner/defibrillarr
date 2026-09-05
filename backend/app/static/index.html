@@ -69,6 +69,23 @@
         <div id="dryRunBadge" class="hidden text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/30">
           DRY-RUN MODE ACTIVE
         </div>
+        <!-- Auto-Boost Cadence Selector -->
+        <div class="hidden sm:flex items-center space-x-1.5 bg-slate-800/80 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs">
+          <span class="text-slate-400 flex items-center space-x-1">
+            <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="hidden md:inline">Auto-Boost:</span>
+          </span>
+          <select id="cadenceSelect" onchange="updateCadenceSetting(this.value)" class="bg-transparent text-purple-300 font-medium focus:outline-none cursor-pointer">
+            <option value="0" class="bg-slate-900 text-slate-300">Off (Stalled Only)</option>
+            <option value="30" class="bg-slate-900 text-slate-300">Every 30m</option>
+            <option value="60" class="bg-slate-900 text-slate-300">Every 1h</option>
+            <option value="120" class="bg-slate-900 text-slate-300">Every 2h</option>
+            <option value="240" class="bg-slate-900 text-slate-300">Every 4h</option>
+            <option value="360" class="bg-slate-900 text-slate-300">Every 6h</option>
+            <option value="720" class="bg-slate-900 text-slate-300">Every 12h</option>
+            <option value="1440" class="bg-slate-900 text-slate-300">Every 24h</option>
+          </select>
+        </div>
         <button onclick="openTrackersModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1.5">
           <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -860,7 +877,40 @@
       }
     }
 
-    // Auto refresh every 5 seconds
+    async function fetchConfig() {
+      try {
+        const res = await fetch('/api/config');
+        if (!res.ok) return;
+        const cfg = await res.json();
+        const cadenceEl = document.getElementById('cadenceSelect');
+        if (cadenceEl && cfg.AUTO_BOOST_CADENCE_MINUTES !== undefined) {
+          cadenceEl.value = String(cfg.AUTO_BOOST_CADENCE_MINUTES);
+        }
+      } catch (e) {
+        console.error("Config fetch error:", e);
+      }
+    }
+
+    async function updateCadenceSetting(val) {
+      try {
+        const res = await fetch('/api/config/cadence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cadence_minutes: parseInt(val, 10) })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast(data.message, "success");
+        } else {
+          showToast("Failed to update cadence", "error");
+        }
+      } catch (e) {
+        showToast("Error updating cadence: " + e.message, "error");
+      }
+    }
+
+    // Initial fetch and auto refresh every 5 seconds
+    fetchConfig();
     fetchOverview();
     fetchQueue();
     fetchHistory();

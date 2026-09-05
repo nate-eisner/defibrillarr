@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.config import Settings
 from app.models import TorrentInfo, DefibrillarrState, ServarrType, ServarrQueueItem
 from app.services.tracker_service import TrackerService
@@ -92,3 +92,44 @@ async def test_qbittorrent_login_204_handling():
     assert qbit._authenticated is True
 
     await qbit.close()
+
+@pytest.mark.asyncio
+async def test_engine_cadence_autoboost():
+    config = Settings(
+        DRY_RUN=True,
+        AUTO_BOOST_CADENCE_MINUTES=60,
+    )
+    tracker_service = TrackerService(urls=[])
+    engine = DefibrillarrEngine(config=config, tracker_service=tracker_service)
+
+    active_torrent = TorrentInfo(
+        hash="1122334455667788",
+        name="Active.Show.S02E05",
+        state="downloading",
+        progress=0.45,
+        dlspeed=50000,
+        upspeed=0,
+        eta=1200,
+        num_seeds=2,
+        num_leechs=3,
+        added_on=1600000000
+    )
+
+    # First cycle initializes last_boosted_timestamps
+    now = datetime.now(timezone.utc)
+    engine.last_boosted_timestamps[active_torrent.hash] = now - timedelta(minutes=65)
+
+    # Mock qbit.get_torrents
+    async def mock_get_torrents(filter_type="all"):
+        return [active_torrent]
+
+    engine.qbit.get_torrents = mock_get_torrents
+
+    await engine.run_cycle()
+
+    # Verify that cadence boost was executed
+    assert len(engine.history) == 1
+    assert engine.history[0].action == "cadence_boost"
+    assert "Periodic auto-boost" in engine.history[0].details
+
+    await engine.stop()

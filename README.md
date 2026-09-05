@@ -89,6 +89,7 @@ services:
       - RESCUE_GRACE_PERIOD_MINUTES=60
       - MIN_DOWNLOAD_SPEED_KBPS=10.0
       - AUTO_FAILOVER_ENABLED=true
+      - AUTO_BOOST_CADENCE_MINUTES=120
       - QBIT_URL=http://192.168.1.100:8080
       - QBIT_USERNAME=admin
       - QBIT_PASSWORD=adminadmin
@@ -113,6 +114,7 @@ services:
 | `RESCUE_GRACE_PERIOD_MINUTES`| `60` | Minutes to wait in Stage 1 before executing Stage 2 failover |
 | `MIN_DOWNLOAD_SPEED_KBPS` | `10.0` | Downloads slower than this with 0 seeds count as stalled |
 | `AUTO_FAILOVER_ENABLED` | `true` | When `false`, requires 1-click confirmation in the Web UI |
+| `AUTO_BOOST_CADENCE_MINUTES` | `120` | Interval to automatically re-inject verified trackers & re-announce (0 = disabled) |
 | `QBIT_URL` | `http://localhost:8080` | URL to qBittorrent Web UI |
 | `QBIT_USERNAME` | `admin` | qBittorrent username |
 | `QBIT_PASSWORD` | `adminadmin` | qBittorrent password |

@@ -34,6 +34,7 @@
   <Config Name="Stall Threshold (Minutes)" Target="STALL_THRESHOLD_MINUTES" Default="15" Description="Minutes with 0 seeds / below min speed before Stage 1 tracker injection" Type="Variable" Display="advanced" Required="false" Mask="false">15</Config>
   <Config Name="Rescue Grace Period (Minutes)" Target="RESCUE_GRACE_PERIOD_MINUTES" Default="60" Description="Minutes to wait in boosting mode before Stage 2 failover" Type="Variable" Display="advanced" Required="false" Mask="false">60</Config>
   <Config Name="Minimum Speed (KB/s)" Target="MIN_DOWNLOAD_SPEED_KBPS" Default="10.0" Description="Downloads under this speed are classified as stalled" Type="Variable" Display="advanced" Required="false" Mask="false">10.0</Config>
+  <Config Name="Auto-Boost Cadence (Minutes)" Target="AUTO_BOOST_CADENCE_MINUTES" Default="120" Description="Interval to automatically re-inject verified trackers into active/stalled downloads (0 = disabled)" Type="Variable" Display="always" Required="false" Mask="false">120</Config>
   <Config Name="Auto Failover Enabled" Target="AUTO_FAILOVER_ENABLED" Default="true" Description="Set to false to require 1-click manual trigger in Web UI" Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
   <Config Name="Dry Run Mode" Target="DRY_RUN" Default="false" Description="Log actions without modifying qBittorrent or Servarr" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
 </Container>

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     RESCUE_GRACE_PERIOD_MINUTES: int = 60  # Minutes in rescue mode before Stage 2 (Failover)
     MIN_DOWNLOAD_SPEED_KBPS: float = 10.0  # Speeds below this count as stalled
     AUTO_FAILOVER_ENABLED: bool = True  # Automatically remove, blocklist, and re-search
+    AUTO_BOOST_CADENCE_MINUTES: int = 120  # Automatic recurring tracker re-boost cadence (0 = disabled)
 
     # qBittorrent Settings
     QBIT_URL: str = "http://localhost:8080"

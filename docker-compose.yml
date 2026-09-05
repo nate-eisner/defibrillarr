@@ -16,6 +16,7 @@ services:
       - RESCUE_GRACE_PERIOD_MINUTES=60
       - MIN_DOWNLOAD_SPEED_KBPS=10.0
       - AUTO_FAILOVER_ENABLED=true
+      - AUTO_BOOST_CADENCE_MINUTES=120
       # Point to your Unraid host or container network addresses:
       - QBIT_URL=http://qbittorrent:8080
       - QBIT_USERNAME=admin

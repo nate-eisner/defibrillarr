@@ -89,3 +89,6 @@ class HistoryEvent(BaseModel):
 
 class ManualActionRequest(BaseModel):
     reason: Optional[str] = "Manual action triggered by user"
+
+class CadenceUpdateRequest(BaseModel):
+    cadence_minutes: int

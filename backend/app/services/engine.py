@@ -68,6 +68,7 @@ class DefibrillarrEngine:
             )
 
         self.stalled_records: Dict[str, StalledRecord] = {}
+        self.last_boosted_timestamps: Dict[str, datetime] = {}
         self.history: List[HistoryEvent] = []
         self._running: bool = False
         self._task: Optional[asyncio.Task] = None
@@ -258,6 +259,23 @@ class DefibrillarrEngine:
                     del self.stalled_records[t_hash]
                 continue
 
+            # Check Periodic Cadence Auto-Boost
+            if self.config.AUTO_BOOST_CADENCE_MINUTES > 0 and t.progress < 1.0 and t.state not in ("uploading", "stalledUP", "pausedUP"):
+                last_boost = self.last_boosted_timestamps.get(t_hash)
+                if last_boost is None:
+                    self.last_boosted_timestamps[t_hash] = now
+                elif (now - last_boost) >= timedelta(minutes=self.config.AUTO_BOOST_CADENCE_MINUTES):
+                    trackers = self.trackers.get_trackers()
+                    logger.info(f"[Cadence Auto-Boost] Injecting {len(trackers)} fresh trackers into '{t.name}' (cadence: {self.config.AUTO_BOOST_CADENCE_MINUTES}m)")
+                    await self.qbit.add_trackers(t.hash, trackers)
+                    await self.qbit.reannounce(t.hash)
+                    self.last_boosted_timestamps[t_hash] = now
+                    self.add_history(
+                        t.hash, t.name, "cadence_boost",
+                        f"Periodic auto-boost: Injected {len(trackers)} verified trackers & re-announced (cadence: {self.config.AUTO_BOOST_CADENCE_MINUTES}m).",
+                        servarr_app=servarr_app
+                    )
+
             # Check if downloading healthily
             is_healthy = (
                 t.state in ("downloading", "forcedDL") and
@@ -324,6 +342,9 @@ class DefibrillarrEngine:
         for stale_hash in list(self.stalled_records.keys()):
             if stale_hash not in active_hashes:
                 del self.stalled_records[stale_hash]
+        for stale_hash in list(self.last_boosted_timestamps.keys()):
+            if stale_hash not in active_hashes:
+                del self.last_boosted_timestamps[stale_hash]
 
     async def _execute_stage_1_boost(self, t: TorrentInfo, rec: StalledRecord):
         """Inject trackers, force re-announce, and tag torrent."""
@@ -335,6 +356,7 @@ class DefibrillarrEngine:
         await self.qbit.add_tags(t.hash, [self.config.QBIT_TAG_BOOSTED])
 
         rec.boosted_at = datetime.now(timezone.utc)
+        self.last_boosted_timestamps[t.hash.lower()] = rec.boosted_at
         rec.grace_period_expires_at = rec.boosted_at + timedelta(minutes=self.config.RESCUE_GRACE_PERIOD_MINUTES)
         rec.state = DefibrillarrState.BOOSTING
         rec.status_message = f"Trackers injected. In probation grace period until {rec.grace_period_expires_at.strftime('%H:%M:%S UTC')}."
