@@ -94,6 +94,17 @@ async def get_history():
     """Returns recent rescue and failover action events."""
     return engine.history
 
+@app.get("/api/trackers")
+async def get_trackers():
+    """Returns all cached verified public trackers."""
+    trackers = tracker_service.get_trackers()
+    return {
+        "status": "success",
+        "total": len(trackers),
+        "trackers": trackers,
+        "sources": settings.TRACKER_LIST_URLS
+    }
+
 @app.post("/api/trackers/refresh")
 async def refresh_trackers():
     """Forces refreshing live public tracker lists."""
