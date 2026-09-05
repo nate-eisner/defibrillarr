@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Defibrillarr</Name>
-  <Repository>defibrillarr:latest</Repository>
+  <Repository>ghcr.io/nate-eisner/defibrillarr:latest</Repository>
   <Registry>https://github.com/nate-eisner/defibrillarr</Registry>
   <Network>bridge</Network>
   <MyIP/>

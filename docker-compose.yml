@@ -1,5 +1,6 @@
 services:
   defibrillarr:
+    image: ghcr.io/nate-eisner/defibrillarr:latest
     build:
       context: .
       dockerfile: Dockerfile
