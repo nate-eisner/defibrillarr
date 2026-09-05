@@ -26,6 +26,7 @@
       }
     }
   </script>
+  <link rel="icon" type="image/png" href="/static/logo.png">
   <style>
     @keyframes pulse-glow {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -42,11 +43,7 @@
   <header class="border-b border-slate-800 bg-[#111827]/80 backdrop-blur sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-          </svg>
-        </div>
+        <img src="/static/logo.png" alt="Defibrillarr Logo" class="w-10 h-10 rounded-xl shadow-lg shadow-rose-500/20 object-cover border border-slate-700/50">
         <div>
           <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-rose-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">Defibrillarr</span>
           <span class="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">Unraid Edition</span>

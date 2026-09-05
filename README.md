@@ -1,8 +1,16 @@
-# ⚡ Defibrillarr
+<p align="center">
+  <img src="assets/logo.png" alt="Defibrillarr Logo" width="180" style="border-radius: 28px;">
+</p>
 
-**Stalled Torrent Revival & Servarr Auto-Failover Service for Unraid**
+<h1 align="center">⚡ Defibrillarr</h1>
 
-Defibrillarr is a lightweight companion daemon for **qBittorrent**, **Sonarr**, **Radarr**, and **Lidarr**. It eliminates the common headache of downloads getting stuck at 0% or stalled due to dead trackers or inactive swarms.
+<p align="center">
+  <strong>Stalled Torrent Revival & Servarr Auto-Failover Service for Unraid</strong>
+</p>
+
+<p align="center">
+  Defibrillarr is a lightweight companion daemon for <strong>qBittorrent</strong>, <strong>Sonarr</strong>, <strong>Radarr</strong>, and <strong>Lidarr</strong>. It eliminates the common headache of downloads getting stuck at 0% or stalled due to dead trackers or inactive swarms.
+</p>
 
 ---
 
