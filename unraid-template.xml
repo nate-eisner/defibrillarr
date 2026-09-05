@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Defibrillarr</Name>
+  <Repository>defibrillarr:latest</Repository>
+  <Registry>https://github.com/nate-eisner/defibrillarr</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/nate-eisner/defibrillarr/issues</Support>
+  <Project>https://github.com/nate-eisner/defibrillarr</Project>
+  <Overview>Defibrillarr is a lightweight companion service for Unraid that automatically revives stalled downloads in qBittorrent by injecting verified live public trackers. If a torrent remains dead after a grace period, Defibrillarr coordinates with Sonarr, Radarr, and Lidarr to delete the stuck torrent, blocklist the bad release, and trigger an immediate search for a healthy replacement.</Overview>
+  <Category>Downloaders: MediaApp:Video MediaApp:Music Tools:Utilities</Category>
+  <WebUI>http://[IP]:[PORT:8787]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/sonarr.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="WebUI Port" Target="8787" Default="8787" Mode="tcp" Description="Web UI port for Defibrillarr dashboard" Type="Port" Display="always" Required="true" Mask="false">8787</Config>
+  <Config Name="qBittorrent URL" Target="QBIT_URL" Default="http://192.168.1.100:8080" Description="URL of your qBittorrent Web UI" Type="Variable" Display="always" Required="true" Mask="false">http://192.168.1.100:8080</Config>
+  <Config Name="qBittorrent Username" Target="QBIT_USERNAME" Default="admin" Description="qBittorrent Web UI username" Type="Variable" Display="always" Required="true" Mask="false">admin</Config>
+  <Config Name="qBittorrent Password" Target="QBIT_PASSWORD" Default="adminadmin" Description="qBittorrent Web UI password" Type="Variable" Display="always" Required="true" Mask="true">adminadmin</Config>
+  <Config Name="Sonarr URL" Target="SONARR_URL" Default="http://192.168.1.100:8989" Description="URL of your Sonarr instance (leave blank if not using)" Type="Variable" Display="always" Required="false" Mask="false">http://192.168.1.100:8989</Config>
+  <Config Name="Sonarr API Key" Target="SONARR_API_KEY" Default="" Description="Sonarr API Key (Settings -> General -> API Key)" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Radarr URL" Target="RADARR_URL" Default="http://192.168.1.100:7878" Description="URL of your Radarr instance (leave blank if not using)" Type="Variable" Display="always" Required="false" Mask="false">http://192.168.1.100:7878</Config>
+  <Config Name="Radarr API Key" Target="RADARR_API_KEY" Default="" Description="Radarr API Key (Settings -> General -> API Key)" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Lidarr URL" Target="LIDARR_URL" Default="http://192.168.1.100:8686" Description="URL of your Lidarr instance (leave blank if not using)" Type="Variable" Display="always" Required="false" Mask="false">http://192.168.1.100:8686</Config>
+  <Config Name="Lidarr API Key" Target="LIDARR_API_KEY" Default="" Description="Lidarr API Key (Settings -> General -> API Key)" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Stall Threshold (Minutes)" Target="STALL_THRESHOLD_MINUTES" Default="15" Description="Minutes with 0 seeds / below min speed before Stage 1 tracker injection" Type="Variable" Display="advanced" Required="false" Mask="false">15</Config>
+  <Config Name="Rescue Grace Period (Minutes)" Target="RESCUE_GRACE_PERIOD_MINUTES" Default="60" Description="Minutes to wait in boosting mode before Stage 2 failover" Type="Variable" Display="advanced" Required="false" Mask="false">60</Config>
+  <Config Name="Minimum Speed (KB/s)" Target="MIN_DOWNLOAD_SPEED_KBPS" Default="10.0" Description="Downloads under this speed are classified as stalled" Type="Variable" Display="advanced" Required="false" Mask="false">10.0</Config>
+  <Config Name="Auto Failover Enabled" Target="AUTO_FAILOVER_ENABLED" Default="true" Description="Set to false to require 1-click manual trigger in Web UI" Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Dry Run Mode" Target="DRY_RUN" Default="false" Description="Log actions without modifying qBittorrent or Servarr" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+</Container>

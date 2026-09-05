@@ -1,0 +1,29 @@
+services:
+  defibrillarr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: defibrillarr
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      - PORT=8787
+      - DRY_RUN=false
+      - POLL_INTERVAL_SECONDS=60
+      - STALL_THRESHOLD_MINUTES=15
+      - RESCUE_GRACE_PERIOD_MINUTES=60
+      - MIN_DOWNLOAD_SPEED_KBPS=10.0
+      - AUTO_FAILOVER_ENABLED=true
+      # Point to your Unraid host or container network addresses:
+      - QBIT_URL=http://qbittorrent:8080
+      - QBIT_USERNAME=admin
+      - QBIT_PASSWORD=adminadmin
+      - SONARR_URL=http://sonarr:8989
+      - SONARR_API_KEY=your_sonarr_api_key_here
+      - RADARR_URL=http://radarr:7878
+      - RADARR_API_KEY=your_radarr_api_key_here
+      - LIDARR_URL=http://lidarr:8686
+      - LIDARR_API_KEY=your_lidarr_api_key_here
+    env_file:
+      - .env # optional override if present

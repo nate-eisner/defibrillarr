@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Defibrillarr | Stalled Torrent Revival</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fdf2f8',
+              100: '#fce7f3',
+              500: '#ec4899',
+              600: '#db2777',
+              700: '#be185d',
+            },
+            darkBg: '#0f172a',
+            darkCard: '#1e293b',
+            darkBorder: '#334155'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.05); }
+    }
+    .pulse-indicator {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-rose-500 selection:text-white">
+
+  <!-- Top Navigation -->
+  <header class="border-b border-slate-800 bg-[#111827]/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-rose-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">Defibrillarr</span>
+          <span class="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">Unraid Edition</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <div id="dryRunBadge" class="hidden text-xs font-semibold px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/30">
+          DRY-RUN MODE ACTIVE
+        </div>
+        <button onclick="triggerImmediateCycle()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span>Run Check Cycle</span>
+        </button>
+        <button onclick="refreshTrackers()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <span>Sync Trackers</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
+
+    <!-- Stat Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+        <div class="text-xs font-medium text-slate-400">Total Downloads</div>
+        <div id="statTotal" class="text-2xl font-bold mt-1 text-slate-100">-</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+        <div class="text-xs font-medium text-emerald-400">Healthy / Active</div>
+        <div id="statHealthy" class="text-2xl font-bold mt-1 text-emerald-400">-</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+        <div class="text-xs font-medium text-amber-400">Stalled Downloads</div>
+        <div id="statStalled" class="text-2xl font-bold mt-1 text-amber-400">-</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+        <div class="text-xs font-medium text-purple-400">Boosting (Probation)</div>
+        <div id="statBoosting" class="text-2xl font-bold mt-1 text-purple-400">-</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
+        <div class="text-xs font-medium text-cyan-400">Live Trackers Cached</div>
+        <div id="statTrackers" class="text-2xl font-bold mt-1 text-cyan-400">-</div>
+      </div>
+    </div>
+
+    <!-- Integrations Status -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="servicesGrid">
+      <!-- Services will be populated dynamically -->
+    </div>
+
+    <!-- Live Queue Section -->
+    <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-sm">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-semibold text-slate-100 flex items-center space-x-2">
+            <span>Servarr & Torrent Swarm Queue</span>
+            <span id="queueCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Real-time status of downloads matched across qBittorrent, Sonarr, Radarr, and Lidarr</p>
+        </div>
+        <div class="text-xs text-slate-500 flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block pulse-indicator"></span>
+          <span>Live Polling</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-950/40 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-800/60">
+            <tr>
+              <th class="px-6 py-3.5">Media Title / Torrent</th>
+              <th class="px-4 py-3.5">Source</th>
+              <th class="px-4 py-3.5">Progress</th>
+              <th class="px-4 py-3.5">Speed</th>
+              <th class="px-4 py-3.5">Seeds / Peers</th>
+              <th class="px-4 py-3.5">Defibrillarr State</th>
+              <th class="px-6 py-3.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="queueTableBody" class="divide-y divide-slate-800/60">
+            <tr>
+              <td colspan="7" class="px-6 py-8 text-center text-slate-500">Loading downloads from qBittorrent & Servarr...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- History / Audit Log -->
+    <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl overflow-hidden shadow-sm">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-200">Revival & Failover History</h3>
+          <p class="text-xs text-slate-400">Record of tracker injections, seed recoveries, and automatic Servarr re-searches</p>
+        </div>
+      </div>
+      <div class="p-4 max-h-72 overflow-y-auto space-y-2 font-mono text-xs" id="historyList">
+        <div class="text-slate-500 py-4 text-center">No actions recorded yet.</div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="border-t border-slate-800/80 py-4 text-center text-xs text-slate-500">
+    Defibrillarr &bull; Automated Torrent Seed Finder & Servarr Failover Orchestrator
+  </footer>
+
+  <script>
+    let isFetching = false;
+
+    async function fetchOverview() {
+      try {
+        const res = await fetch('/api/overview');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        document.getElementById('statTotal').innerText = data.total_torrents;
+        document.getElementById('statHealthy').innerText = data.healthy_count;
+        document.getElementById('statStalled').innerText = data.stalled_count;
+        document.getElementById('statBoosting').innerText = data.boosting_count;
+        document.getElementById('statTrackers').innerText = data.cached_trackers_count;
+
+        if (data.dry_run) {
+          document.getElementById('dryRunBadge').classList.remove('hidden');
+        }
+
+        renderServices(data.services);
+      } catch (e) {
+        console.error("Overview error:", e);
+      }
+    }
+
+    function renderServices(services) {
+      const container = document.getElementById('servicesGrid');
+      container.innerHTML = '';
+
+      const serviceKeys = ['qbittorrent', 'sonarr', 'radarr', 'lidarr'];
+      for (const key of serviceKeys) {
+        const s = services[key];
+        if (!s) continue;
+
+        let statusColor = s.connected ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-slate-500 bg-slate-800/30 border-slate-700/30';
+        let badgeText = s.connected ? (s.version ? `v${s.version}` : 'Connected') : (s.url ? 'Offline' : 'Unconfigured');
+
+        const card = document.createElement('div');
+        card.className = "bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 flex items-center justify-between";
+        card.innerHTML = `
+          <div>
+            <div class="text-xs text-slate-400">${s.name}</div>
+            <div class="text-sm font-semibold text-slate-200 mt-0.5 truncate max-w-[150px]">${s.url || 'None'}</div>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-full border font-medium ${statusColor}">
+            ${badgeText}
+          </span>
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    async function fetchQueue() {
+      if (isFetching) return;
+      isFetching = true;
+      try {
+        const res = await fetch('/api/queue');
+        if (!res.ok) return;
+        const items = await res.json();
+        document.getElementById('queueCountBadge').innerText = items.length;
+        renderQueue(items);
+      } catch (e) {
+        console.error("Queue error:", e);
+      } finally {
+        isFetching = false;
+      }
+    }
+
+    function renderQueue(items) {
+      const tbody = document.getElementById('queueTableBody');
+      if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-8 text-center text-slate-500">No active torrents in qBittorrent.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-800/30 transition";
+
+        // Servarr app badge
+        let appBadge = '<span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">Direct</span>';
+        if (item.servarr_app === 'sonarr') {
+          appBadge = '<span class="text-xs px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium">Sonarr</span>';
+        } else if (item.servarr_app === 'radarr') {
+          appBadge = '<span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">Radarr</span>';
+        } else if (item.servarr_app === 'lidarr') {
+          appBadge = '<span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Lidarr</span>';
+        }
+
+        // Defibrillarr State badge
+        let stateBadge = '';
+        if (item.defibrillarr_state === 'healthy') {
+          stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Healthy</span>';
+        } else if (item.defibrillarr_state === 'stalled') {
+          stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Stalled (Waiting)</span>';
+        } else if (item.defibrillarr_state === 'boosting') {
+          stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 pulse-indicator">Boosting Swarm</span>';
+        } else if (item.defibrillarr_state === 'probation_expired') {
+          stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">Grace Expired</span>';
+        } else if (item.defibrillarr_state === 'failed_over') {
+          stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-400">Replaced & Searched</span>';
+        }
+
+        const pct = Math.round(item.progress * 100);
+        const speedText = item.dlspeed_kbps > 1024 ? `${(item.dlspeed_kbps / 1024).toFixed(1)} MB/s` : `${item.dlspeed_kbps.toFixed(0)} KB/s`;
+
+        tr.innerHTML = `
+          <td class="px-6 py-4">
+            <div class="font-medium text-slate-100 max-w-sm truncate" title="${item.name}">
+              ${item.servarr_media_title || item.name}
+            </div>
+            <div class="text-xs text-slate-500 font-mono truncate max-w-sm">${item.hash.substring(0, 16)}...</div>
+          </td>
+          <td class="px-4 py-4">${appBadge}</td>
+          <td class="px-4 py-4">
+            <div class="flex items-center space-x-2">
+              <div class="w-16 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-rose-500 h-1.5 rounded-full" style="width: ${pct}%"></div>
+              </div>
+              <span class="text-xs font-mono text-slate-400">${pct}%</span>
+            </div>
+          </td>
+          <td class="px-4 py-4 font-mono text-xs ${item.dlspeed_kbps > 0 ? 'text-emerald-400' : 'text-slate-500'}">${speedText}</td>
+          <td class="px-4 py-4 font-mono text-xs">
+            <span class="${item.num_seeds === 0 ? 'text-rose-400 font-bold' : 'text-slate-300'}">${item.num_seeds}</span>
+            <span class="text-slate-500">/</span>
+            <span class="text-slate-400">${item.num_leechs}</span>
+          </td>
+          <td class="px-4 py-4">
+            ${stateBadge}
+            <div class="text-[11px] text-slate-500 mt-1 max-w-[200px] truncate" title="${item.status_message}">${item.status_message}</div>
+          </td>
+          <td class="px-6 py-4 text-right space-x-1.5 whitespace-nowrap">
+            <button onclick="boostTorrent('${item.hash}')" class="px-2.5 py-1 text-xs rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition">
+              Boost Trackers
+            </button>
+            <button onclick="failoverTorrent('${item.hash}')" class="px-2.5 py-1 text-xs rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition">
+              Failover & Search
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function fetchHistory() {
+      try {
+        const res = await fetch('/api/history');
+        if (!res.ok) return;
+        const history = await res.json();
+        const container = document.getElementById('historyList');
+
+        if (history.length === 0) {
+          container.innerHTML = '<div class="text-slate-500 py-4 text-center">No actions recorded yet.</div>';
+          return;
+        }
+
+        container.innerHTML = '';
+        history.forEach(ev => {
+          const row = document.createElement('div');
+          row.className = "flex items-start space-x-3 p-2 rounded bg-slate-950/40 border border-slate-800/40";
+          const time = new Date(ev.timestamp).toLocaleTimeString();
+          row.innerHTML = `
+            <span class="text-slate-500 text-[11px] whitespace-nowrap">[${time}]</span>
+            <span class="text-rose-400 font-bold whitespace-nowrap">${ev.action}</span>
+            <span class="text-slate-300 flex-1 truncate font-sans">${ev.torrent_name} &bull; ${ev.details}</span>
+          `;
+          container.appendChild(row);
+        });
+      } catch (e) {
+        console.error("History error:", e);
+      }
+    }
+
+    async function boostTorrent(hash) {
+      if (!confirm("Inject fresh verified trackers and force re-announce now?")) return;
+      try {
+        const res = await fetch(`/api/torrents/${hash}/boost`, { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || "Boost triggered!");
+        fetchQueue();
+        fetchHistory();
+      } catch (e) {
+        alert("Failed to boost: " + e.message);
+      }
+    }
+
+    async function failoverTorrent(hash) {
+      if (!confirm("Are you sure? This will remove the stuck download, blocklist the release in Servarr, and search for a replacement.")) return;
+      try {
+        const res = await fetch(`/api/torrents/${hash}/failover`, { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || "Failover triggered!");
+        fetchQueue();
+        fetchHistory();
+      } catch (e) {
+        alert("Failed to failover: " + e.message);
+      }
+    }
+
+    async function triggerImmediateCycle() {
+      try {
+        await fetch('/api/cycle', { method: 'POST' });
+        fetchOverview();
+        fetchQueue();
+        fetchHistory();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function refreshTrackers() {
+      try {
+        const res = await fetch('/api/trackers/refresh', { method: 'POST' });
+        const data = await res.json();
+        alert(`Successfully synced ${data.total_trackers} live verified trackers!`);
+        fetchOverview();
+      } catch (e) {
+        alert("Tracker sync failed: " + e.message);
+      }
+    }
+
+    // Auto refresh every 5 seconds
+    fetchOverview();
+    fetchQueue();
+    fetchHistory();
+    setInterval(() => {
+      fetchOverview();
+      fetchQueue();
+      fetchHistory();
+    }, 5000);
+  </script>
+</body>
+</html>
