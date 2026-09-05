@@ -20,6 +20,7 @@ async def test_servarr_search_command_generation():
     success, cmd = await sonarr_client.trigger_search_for_record(mock_sonarr_record)
     assert success is True
     assert cmd == "EpisodeSearch"
+    assert sonarr_client.api_prefix == "/api/v3"
 
     # Radarr test
     radarr_client = ServarrClient(
@@ -53,6 +54,7 @@ async def test_servarr_search_command_generation():
     success, cmd = await lidarr_client.trigger_search_for_record(mock_lidarr_record)
     assert success is True
     assert cmd == "AlbumSearch"
+    assert lidarr_client.api_prefix == "/api/v1"
 
     await sonarr_client.close()
     await radarr_client.close()

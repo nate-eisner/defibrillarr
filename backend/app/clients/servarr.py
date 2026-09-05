@@ -11,6 +11,8 @@ class ServarrClient:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.dry_run = dry_run
+        # Lidarr uses /api/v1 by default, while Sonarr and Radarr use /api/v3
+        self.api_prefix = "/api/v1" if self.app_type == ServarrType.LIDARR else "/api/v3"
         self._headers = {"X-Api-Key": self.api_key, "Accept": "application/json"}
         self._client = httpx.AsyncClient(timeout=10.0, headers=self._headers, follow_redirects=True)
 
@@ -20,9 +22,17 @@ class ServarrClient:
     async def get_system_status(self) -> Optional[Dict[str, Any]]:
         """Fetch system status / version from Servarr instance."""
         try:
-            resp = await self._client.get(f"{self.base_url}/api/v3/system/status")
+            resp = await self._client.get(f"{self.base_url}{self.api_prefix}/system/status")
             if resp.status_code == 200:
                 return resp.json()
+            elif resp.status_code == 404:
+                # Try fallback between /api/v1 and /api/v3
+                alt_prefix = "/api/v3" if self.api_prefix == "/api/v1" else "/api/v1"
+                alt_resp = await self._client.get(f"{self.base_url}{alt_prefix}/system/status")
+                if alt_resp.status_code == 200:
+                    self.api_prefix = alt_prefix
+                    logger.info(f"[{self.app_type}] Adjusted API prefix to {self.api_prefix}")
+                    return alt_resp.json()
             logger.warning(f"[{self.app_type}] get_system_status returned {resp.status_code}")
             return None
         except Exception as e:
@@ -35,7 +45,7 @@ class ServarrClient:
         (raw record is preserved for triggering specific search commands).
         """
         try:
-            endpoint = f"{self.base_url}/api/v3/queue"
+            endpoint = f"{self.base_url}{self.api_prefix}/queue"
             params: Dict[str, Any] = {"page": 1, "pageSize": 100}
             if self.app_type == ServarrType.SONARR:
                 params["includeSeries"] = "true"
@@ -113,7 +123,7 @@ class ServarrClient:
             logger.info(f"[{self.app_type}] [DRY RUN] Would remove queue item {queue_id} & blocklist release")
             return True
         try:
-            url = f"{self.base_url}/api/v3/queue/{queue_id}"
+            url = f"{self.base_url}{self.api_prefix}/queue/{queue_id}"
             params = {"removeFromClient": "true", "blocklist": "true"}
             resp = await self._client.delete(url, params=params)
             if resp.status_code in (200, 204):
@@ -164,7 +174,7 @@ class ServarrClient:
             return True, cmd_name
 
         try:
-            url = f"{self.base_url}/api/v3/command"
+            url = f"{self.base_url}{self.api_prefix}/command"
             resp = await self._client.post(url, json=command_body)
             if resp.status_code in (200, 201):
                 logger.info(f"[{self.app_type}] Successfully dispatched {cmd_name}")

@@ -70,3 +70,25 @@ async def test_engine_stalled_lifecycle():
     assert engine.history[0].action == "failover_executed"
 
     await engine.stop()
+
+@pytest.mark.asyncio
+async def test_qbittorrent_login_204_handling():
+    import httpx
+    from app.clients.qbittorrent import QBittorrentClient
+
+    qbit = QBittorrentClient("http://mock-qbit:8080", "admin", "adminadmin")
+
+    # Mock response returning 204
+    async def mock_handler(request):
+        if "/api/v2/auth/login" in str(request.url):
+            return httpx.Response(204, content=b"")
+        return httpx.Response(404)
+
+    transport = httpx.MockTransport(mock_handler)
+    qbit._client = httpx.AsyncClient(transport=transport)
+
+    login_ok = await qbit.login()
+    assert login_ok is True
+    assert qbit._authenticated is True
+
+    await qbit.close()

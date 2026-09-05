@@ -23,7 +23,15 @@ class QBittorrentClient:
             url = f"{self.base_url}/api/v2/auth/login"
             data = {"username": self.username, "password": self.password}
             response = await self._client.post(url, data=data)
-            if response.status_code == 200 and response.text.strip().lower() == "ok.":
+            # qBittorrent returns:
+            # - 200 with "Ok." in legacy versions
+            # - 204 No Content in qBittorrent 4.x / 5.x
+            # - 200 with "Fails." or 403 on invalid credentials
+            is_success = (
+                response.status_code in (200, 204) and
+                response.text.strip().lower() != "fails."
+            )
+            if is_success:
                 self._authenticated = True
                 logger.info("Successfully authenticated with qBittorrent")
                 return True
