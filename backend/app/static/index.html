@@ -111,7 +111,7 @@
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
 
     <!-- Stat Cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
       <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
         <div class="text-xs font-medium text-slate-400">Total Downloads</div>
         <div id="statTotal" class="text-2xl font-bold mt-1 text-slate-100">-</div>
@@ -125,8 +125,15 @@
         <div id="statStalled" class="text-2xl font-bold mt-1 text-amber-400">-</div>
       </div>
       <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
-        <div class="text-xs font-medium text-purple-400">Boosting (Probation)</div>
+        <div class="text-xs font-medium text-purple-400">Boosting Swarm</div>
         <div id="statBoosting" class="text-2xl font-bold mt-1 text-purple-400">-</div>
+      </div>
+      <div onclick="filterByState('error')" class="bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800/80 hover:border-rose-500/40 rounded-2xl p-4 shadow-sm cursor-pointer transition group">
+        <div class="text-xs font-medium text-rose-400 flex items-center justify-between">
+          <span>Errors / Warning</span>
+          <svg class="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        </div>
+        <div id="statErrors" class="text-2xl font-bold mt-1 text-rose-400">-</div>
       </div>
       <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-sm">
         <div class="text-xs font-medium text-teal-400">100% Complete</div>
@@ -134,7 +141,7 @@
       </div>
       <div onclick="openTrackersModal()" class="bg-slate-900/60 hover:bg-slate-800/60 border border-slate-800/80 hover:border-cyan-500/40 rounded-2xl p-4 shadow-sm cursor-pointer transition group">
         <div class="text-xs font-medium text-cyan-400 flex items-center justify-between">
-          <span>Live Trackers Cached</span>
+          <span>Live Trackers</span>
           <svg class="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
         <div id="statTrackers" class="text-2xl font-bold mt-1 text-cyan-400">-</div>
@@ -202,6 +209,7 @@
             <label class="text-slate-400 font-medium">State:</label>
             <select id="stateFilter" onchange="handleStateFilter(this.value)" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-rose-500">
               <option value="all">All States</option>
+              <option value="error">⚠️ Errors / Warnings</option>
               <option value="healthy">Healthy</option>
               <option value="stalled">Stalled (Waiting)</option>
               <option value="boosting">Boosting (Probation)</option>
@@ -498,6 +506,7 @@
         document.getElementById('statStalled').innerText = data.stalled_count;
         document.getElementById('statBoosting').innerText = data.boosting_count;
         document.getElementById('statCompleted').innerText = data.completed_count || 0;
+        document.getElementById('statErrors').innerText = data.error_count || 0;
         document.getElementById('statTrackers').innerText = data.cached_trackers_count;
 
         if (data.dry_run) {
@@ -507,6 +516,14 @@
         renderServices(data.services);
       } catch (e) {
         console.error("Overview error:", e);
+      }
+    }
+
+    function filterByState(stateVal) {
+      const stateSelect = document.getElementById('stateFilter');
+      if (stateSelect) {
+        stateSelect.value = stateVal;
+        handleStateFilter(stateVal);
       }
     }
 
@@ -588,6 +605,7 @@
 
       let filtered = allQueueItems.filter(item => {
         const isItemComplete = item.defibrillarr_state === 'completed' || item.progress >= 1.0;
+        const isItemError = item.defibrillarr_state === 'error' || item.is_errored;
 
         // Hide 100% complete items by default unless state filter is explicitly 'completed'
         if (hideCompleted && stateFilter !== 'completed' && isItemComplete) {
@@ -598,7 +616,8 @@
         if (searchFilter) {
           const matchTitle = (item.servarr_media_title || item.name || '').toLowerCase().includes(searchFilter);
           const matchHash = item.hash.toLowerCase().includes(searchFilter);
-          if (!matchTitle && !matchHash) return false;
+          const matchErr = (item.error_message || '').toLowerCase().includes(searchFilter);
+          if (!matchTitle && !matchHash && !matchErr) return false;
         }
 
         // Source filter
@@ -614,6 +633,8 @@
         if (stateFilter !== 'all') {
           if (stateFilter === 'completed') {
             if (!isItemComplete) return false;
+          } else if (stateFilter === 'error') {
+            if (!isItemError) return false;
           } else {
             if (item.defibrillarr_state !== stateFilter) return false;
           }
@@ -656,7 +677,8 @@
       tbody.innerHTML = '';
       filtered.forEach(item => {
         const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-800/30 transition";
+        const isItemError = item.defibrillarr_state === 'error' || item.is_errored;
+        tr.className = isItemError ? "hover:bg-rose-950/20 bg-rose-950/10 transition border-l-2 border-l-rose-500" : "hover:bg-slate-800/30 transition";
 
         // Servarr app badge
         let appBadge = '<span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">Direct</span>';
@@ -672,7 +694,9 @@
         let stateBadge = '';
         const isComplete = item.defibrillarr_state === 'completed' || item.progress >= 1.0;
 
-        if (isComplete) {
+        if (isItemError) {
+          stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold inline-flex items-center space-x-1"><svg class="w-3.5 h-3.5 text-rose-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg><span>Error</span></span>';
+        } else if (isComplete) {
           stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium inline-flex items-center space-x-1"><svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><span>Complete</span></span>';
         } else if (item.defibrillarr_state === 'healthy') {
           stateBadge = '<span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Healthy</span>';
@@ -690,7 +714,16 @@
         const speedText = item.dlspeed_kbps > 1024 ? `${(item.dlspeed_kbps / 1024).toFixed(1)} MB/s` : `${item.dlspeed_kbps.toFixed(0)} KB/s`;
 
         let actionHtml = '';
-        if (isComplete) {
+        if (isItemError) {
+          actionHtml = `
+            <button onclick="confirmRecheck('${item.hash}', '${encodeURIComponent(item.servarr_media_title || item.name)}')" class="px-2.5 py-1 text-xs rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition flex-inline items-center space-x-1" title="Force recheck and resume torrent in qBittorrent">
+              <span>Recheck / Fix</span>
+            </button>
+            <button onclick="confirmFailover('${item.hash}', '${encodeURIComponent(item.servarr_media_title || item.name)}', '${item.servarr_app || ''}')" class="px-2.5 py-1 text-xs rounded bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow-sm transition" title="Remove stuck release from Servarr/qBit and search healthy replacement">
+              <span>Remove & Re-search</span>
+            </button>
+          `;
+        } else if (isComplete) {
           actionHtml = '<span class="text-xs text-slate-500 font-medium px-2 py-1 select-none">Finished</span>';
         } else {
           actionHtml = `
@@ -703,9 +736,12 @@
           `;
         }
 
+        const statusMsgDisplay = item.error_message || item.status_message;
+        const statusMsgClass = isItemError ? 'text-rose-400 font-medium' : 'text-slate-500';
+
         tr.innerHTML = `
           <td class="px-6 py-4">
-            <div class="font-medium text-slate-100 max-w-sm truncate" title="${item.name}">
+            <div class="font-medium ${isItemError ? 'text-rose-200 font-semibold' : 'text-slate-100'} max-w-sm truncate" title="${item.name}">
               ${item.servarr_media_title || item.name}
             </div>
             <div class="text-xs text-slate-500 font-mono truncate max-w-sm">${item.hash.substring(0, 16)}...</div>
@@ -714,20 +750,20 @@
           <td class="px-4 py-4">
             <div class="flex items-center space-x-2">
               <div class="w-16 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div class="bg-rose-500 h-1.5 rounded-full" style="width: ${pct}%"></div>
+                <div class="${isItemError ? 'bg-rose-600' : 'bg-rose-500'} h-1.5 rounded-full" style="width: ${pct}%"></div>
               </div>
               <span class="text-xs font-mono text-slate-400">${pct}%</span>
             </div>
           </td>
           <td class="px-4 py-4 font-mono text-xs ${item.dlspeed_kbps > 0 ? 'text-emerald-400' : 'text-slate-500'}">${speedText}</td>
           <td class="px-4 py-4 font-mono text-xs">
-            <span class="${item.num_seeds === 0 && !isComplete ? 'text-rose-400 font-bold' : 'text-slate-300'}">${item.num_seeds}</span>
+            <span class="${(item.num_seeds === 0 && !isComplete) || isItemError ? 'text-rose-400 font-bold' : 'text-slate-300'}">${item.num_seeds}</span>
             <span class="text-slate-500">/</span>
             <span class="text-slate-400">${item.num_leechs}</span>
           </td>
           <td class="px-4 py-4">
             ${stateBadge}
-            <div class="text-[11px] text-slate-500 mt-1 max-w-[200px] truncate" title="${item.status_message}">${item.status_message}</div>
+            <div class="text-[11px] ${statusMsgClass} mt-1 max-w-[220px] truncate" title="${statusMsgDisplay}">${statusMsgDisplay}</div>
           </td>
           <td class="px-6 py-4 text-right space-x-1.5 whitespace-nowrap">
             ${actionHtml}
@@ -811,6 +847,29 @@
         }
       });
     }
+
+    function confirmRecheck(hash, encodedName) {
+      const name = decodeURIComponent(encodedName);
+      showCustomConfirm({
+        title: "Recheck & Repair Torrent",
+        subtitle: "Integrity Verification",
+        message: `Trigger a force recheck of all downloaded chunks and unpause the torrent in qBittorrent: <br><strong class="text-white mt-1 block">${name}</strong>`,
+        confirmText: "Force Recheck & Resume",
+        confirmColor: "purple",
+        onConfirm: async () => {
+          try {
+            const res = await fetch(`/api/torrents/${hash}/recheck`, { method: 'POST' });
+            const data = await res.json();
+            showToast(data.message || "Force recheck and resume command sent!", "success");
+            fetchQueue();
+            fetchHistory();
+          } catch (e) {
+            showToast("Failed to initiate recheck: " + e.message, "error");
+          }
+        }
+      });
+    }
+
 
     async function triggerImmediateCycle() {
       try {

@@ -32,6 +32,8 @@ class StalledRecord:
         self.servarr_queue_id: Optional[int] = None
         self.raw_servarr_record: Optional[Dict[str, Any]] = None
         self.status_message: str = "Stalled download detected"
+        self.error_message: Optional[str] = None
+        self.recheck_attempted: bool = False
 
 class DefibrillarrEngine:
     def __init__(self, config: Settings, tracker_service: TrackerService):
@@ -188,6 +190,23 @@ class DefibrillarrEngine:
             ) if servarr_match else None
             servarr_queue_id = servarr_match[0].id if servarr_match else None
 
+            # Detect error from qBittorrent or Servarr
+            qbit_is_errored = t.state.lower() in ("error", "missingfiles")
+            servarr_error = None
+            if servarr_match:
+                q_item = servarr_match[0]
+                if q_item.status.lower() in ("warning", "failed") or (q_item.error_message and len(q_item.error_message.strip()) > 0):
+                    servarr_error = q_item.error_message or f"Servarr queue reported status: {q_item.status}"
+
+            is_errored = qbit_is_errored or bool(servarr_error)
+            error_details = None
+            if qbit_is_errored and servarr_error:
+                error_details = f"qBittorrent ({t.state}): {servarr_error}"
+            elif qbit_is_errored:
+                error_details = f"qBittorrent error: state '{t.state}'"
+            elif servarr_error:
+                error_details = f"{servarr_app.value.capitalize() if servarr_app else 'Servarr'} error: {servarr_error}"
+
             rec = self.stalled_records.get(t_hash)
             first_stalled = None
             boosted_at = None
@@ -198,7 +217,14 @@ class DefibrillarrEngine:
                 t.state in ("uploading", "stalledUP", "pausedUP", "forcedUP", "queuedUP")
             )
 
-            if is_complete:
+            if is_errored:
+                state = DefibrillarrState.ERROR
+                status_msg = error_details or "Download error detected"
+                if rec:
+                    first_stalled = rec.first_stalled_at
+                    boosted_at = rec.boosted_at
+                    grace_expires = rec.grace_period_expires_at
+            elif is_complete:
                 state = DefibrillarrState.COMPLETED
                 status_msg = "Download 100% complete"
                 if t_hash in self.stalled_records:
@@ -229,7 +255,9 @@ class DefibrillarrEngine:
                     first_stalled_at=first_stalled,
                     boosted_at=boosted_at,
                     grace_period_expires_at=grace_expires,
-                    status_message=status_msg
+                    status_message=status_msg,
+                    error_message=error_details,
+                    is_errored=is_errored
                 )
             )
 
@@ -262,6 +290,47 @@ class DefibrillarrEngine:
             servarr_app = servarr_match[0].app if servarr_match else None
             servarr_queue_id = servarr_match[0].id if servarr_match else None
             raw_record = servarr_match[1] if servarr_match else None
+
+            # Detect errors from qBittorrent or Servarr
+            qbit_is_errored = t.state.lower() in ("error", "missingfiles")
+            servarr_error = None
+            if servarr_match:
+                q_item = servarr_match[0]
+                if q_item.status.lower() in ("warning", "failed") or (q_item.error_message and len(q_item.error_message.strip()) > 0):
+                    servarr_error = q_item.error_message or f"Servarr queue status: {q_item.status}"
+
+            is_errored = qbit_is_errored or bool(servarr_error)
+
+            if is_errored:
+                error_msg = servarr_error or f"qBittorrent state '{t.state}'"
+                rec = self.stalled_records.get(t_hash)
+                if not rec:
+                    rec = StalledRecord(t_hash)
+                    rec.servarr_app = servarr_app
+                    rec.servarr_queue_id = servarr_queue_id
+                    rec.raw_servarr_record = raw_record
+                    self.stalled_records[t_hash] = rec
+
+                rec.state = DefibrillarrState.ERROR
+                rec.error_message = error_msg
+                rec.status_message = f"Error: {error_msg}"
+                if servarr_app:
+                    rec.servarr_app = servarr_app
+                    rec.servarr_queue_id = servarr_queue_id
+                    rec.raw_servarr_record = raw_record
+
+                # Automated recovery attempt: try recheck & resume once for qBittorrent errors
+                if qbit_is_errored and not rec.recheck_attempted:
+                    rec.recheck_attempted = True
+                    logger.info(f"[Auto-Repair] Torrent '{t.name}' is in error state ({t.state}). Attempting automatic force-recheck & resume...")
+                    await self.qbit.recheck(t.hash)
+                    await self.qbit.resume(t.hash)
+                    self.add_history(
+                        t.hash, t.name, "auto_recheck_attempted",
+                        f"Auto-repair: Force recheck and resume initiated for error state '{t.state}'.",
+                        servarr_app=servarr_app
+                    )
+                continue
 
             # Check if download is 100% complete (seeding / completed) - ignore and mark complete
             if t.progress >= 1.0 or t.state in ("uploading", "stalledUP", "pausedUP", "forcedUP", "queuedUP"):
@@ -436,6 +505,29 @@ class DefibrillarrEngine:
         await self._execute_stage_1_boost(matched, rec)
         return True
 
+    async def manual_recheck(self, torrent_hash: str) -> bool:
+        """Manually trigger force recheck & resume in qBittorrent to repair errors."""
+        torrents = await self.qbit.get_torrents(filter_type="all")
+        matched = next((t for t in torrents if t.hash.lower() == torrent_hash.lower()), None)
+        if not matched:
+            return False
+
+        recheck_ok = await self.qbit.recheck(matched.hash)
+        resume_ok = await self.qbit.resume(matched.hash)
+
+        rec = self.stalled_records.get(torrent_hash.lower())
+        if rec:
+            rec.recheck_attempted = True
+            rec.status_message = "Integrity recheck and resume command sent."
+
+        self.add_history(
+            matched.hash, matched.name, "manual_recheck",
+            "Manual action: Force integrity recheck and resume initiated.",
+            servarr_app=rec.servarr_app if rec else None,
+            success=(recheck_ok and resume_ok)
+        )
+        return recheck_ok and resume_ok
+
     async def manual_failover(self, torrent_hash: str) -> bool:
         """Manually trigger immediate blocklist, delete, and replacement search."""
         torrents = await self.qbit.get_torrents(filter_type="all")
@@ -473,6 +565,7 @@ class DefibrillarrEngine:
         stalled = sum(1 for q in queue if q.defibrillarr_state in (DefibrillarrState.STALLED, DefibrillarrState.PROBATION_EXPIRED))
         boosting = sum(1 for q in queue if q.defibrillarr_state == DefibrillarrState.BOOSTING)
         completed = sum(1 for q in queue if q.defibrillarr_state == DefibrillarrState.COMPLETED)
+        errors = sum(1 for q in queue if q.defibrillarr_state == DefibrillarrState.ERROR or q.is_errored)
 
         return SystemOverview(
             services=health,
@@ -481,6 +574,8 @@ class DefibrillarrEngine:
             stalled_count=stalled,
             boosting_count=boosting,
             completed_count=completed,
+            error_count=errors,
             cached_trackers_count=len(self.trackers.get_trackers()),
             dry_run=self.config.DRY_RUN
         )
+

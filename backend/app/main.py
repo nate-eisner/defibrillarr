@@ -90,6 +90,18 @@ async def reannounce_torrent(torrent_hash: str):
     success = await engine.qbit.reannounce(torrent_hash)
     return {"status": "success" if success else "failed"}
 
+@app.post("/api/torrents/{torrent_hash}/recheck")
+async def recheck_torrent(torrent_hash: str):
+    """Manually triggers force recheck and resume in qBittorrent to repair errored download."""
+    success = await engine.manual_recheck(torrent_hash)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Torrent with hash {torrent_hash} not found or recheck failed"
+        )
+    return {"status": "success", "message": f"Force recheck and resume sent to {torrent_hash}"}
+
+
 @app.get("/api/history", response_model=List[HistoryEvent])
 async def get_history():
     """Returns recent rescue and failover action events."""

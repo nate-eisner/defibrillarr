@@ -15,6 +15,7 @@ class DefibrillarrState(str, Enum):
     PROBATION_EXPIRED = "probation_expired"
     FAILED_OVER = "failed_over"
     COMPLETED = "completed"
+    ERROR = "error"
 
 class TorrentInfo(BaseModel):
     hash: str
@@ -60,6 +61,8 @@ class UnifiedTorrentItem(BaseModel):
     boosted_at: Optional[datetime] = None
     grace_period_expires_at: Optional[datetime] = None
     status_message: str = "Operating normally"
+    error_message: Optional[str] = None
+    is_errored: bool = False
 
 class ServiceHealth(BaseModel):
     name: str
@@ -76,6 +79,7 @@ class SystemOverview(BaseModel):
     stalled_count: int
     boosting_count: int
     completed_count: int = 0
+    error_count: int = 0
     cached_trackers_count: int
     dry_run: bool
 

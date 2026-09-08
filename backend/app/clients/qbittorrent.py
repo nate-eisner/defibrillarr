@@ -170,3 +170,36 @@ class QBittorrentClient:
         except Exception as e:
             logger.error(f"Error deleting torrent {torrent_hash}: {e}")
             return False
+
+    async def recheck(self, torrent_hash: str) -> bool:
+        """Force recheck torrent data integrity."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would force recheck torrent {torrent_hash}")
+            return True
+        if not await self._ensure_auth():
+            return False
+        try:
+            url = f"{self.base_url}/api/v2/torrents/recheck"
+            data = {"hashes": torrent_hash}
+            resp = await self._client.post(url, data=data)
+            return resp.status_code == 200
+        except Exception as e:
+            logger.error(f"Error rechecking torrent {torrent_hash}: {e}")
+            return False
+
+    async def resume(self, torrent_hash: str) -> bool:
+        """Resume / unpause a torrent."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would resume torrent {torrent_hash}")
+            return True
+        if not await self._ensure_auth():
+            return False
+        try:
+            url = f"{self.base_url}/api/v2/torrents/resume"
+            data = {"hashes": torrent_hash}
+            resp = await self._client.post(url, data=data)
+            return resp.status_code == 200
+        except Exception as e:
+            logger.error(f"Error resuming torrent {torrent_hash}: {e}")
+            return False
+

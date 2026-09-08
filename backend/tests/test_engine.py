@@ -187,3 +187,65 @@ async def test_engine_ignores_100_percent_completed_stalled_items():
     assert overview.completed_count == 1
 
     await engine.stop()
+
+@pytest.mark.asyncio
+async def test_engine_errored_torrent_handling():
+    config = Settings(
+        DRY_RUN=True,
+        STALL_THRESHOLD_MINUTES=1,
+        AUTO_FAILOVER_ENABLED=True
+    )
+    tracker_service = TrackerService(urls=[])
+    engine = DefibrillarrEngine(config=config, tracker_service=tracker_service)
+
+    # 1. Test qBittorrent errored torrent
+    errored_torrent = TorrentInfo(
+        hash="err1234567890abc",
+        name="Errored.Corrupt.Download.1080p",
+        state="error",
+        progress=0.45,
+        dlspeed=0,
+        upspeed=0,
+        eta=86400,
+        num_seeds=0,
+        num_leechs=0,
+        added_on=1600000000
+    )
+
+    async def mock_get_torrents(filter_type="all"):
+        return [errored_torrent]
+
+    engine.qbit.get_torrents = mock_get_torrents
+
+    # Run cycle to detect error and trigger auto-recheck attempt
+    await engine.run_cycle()
+
+    # Verify state in stalled_records
+    rec = engine.stalled_records.get(errored_torrent.hash)
+    assert rec is not None
+    assert rec.state == DefibrillarrState.ERROR
+    assert rec.recheck_attempted is True
+    assert "error" in rec.status_message.lower()
+
+    # Verify history event logged
+    assert len(engine.history) == 1
+    assert engine.history[0].action == "auto_recheck_attempted"
+
+    # Verify get_unified_queue marks as ERROR and is_errored
+    queue = await engine.get_unified_queue()
+    assert len(queue) == 1
+    assert queue[0].defibrillarr_state == DefibrillarrState.ERROR
+    assert queue[0].is_errored is True
+    assert "qBittorrent error" in queue[0].error_message
+
+    # Verify overview statistics include error_count
+    overview = await engine.get_overview()
+    assert overview.error_count == 1
+
+    # 2. Test manual recheck action
+    recheck_success = await engine.manual_recheck(errored_torrent.hash)
+    assert recheck_success is True
+    assert engine.history[0].action == "manual_recheck"
+
+    await engine.stop()
+
