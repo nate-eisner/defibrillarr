@@ -25,12 +25,20 @@ class Settings(BaseSettings):
     AUTO_FAILOVER_ENABLED: bool = True  # Automatically remove, blocklist, and re-search
     AUTO_BOOST_CADENCE_MINUTES: int = 120  # Automatic recurring tracker re-boost cadence (0 = disabled)
 
+    # Torrent Client Selection ("qbittorrent" or "transmission")
+    TORRENT_CLIENT: str = "qbittorrent"
+
     # qBittorrent Settings
     QBIT_URL: str = "http://localhost:8080"
     QBIT_USERNAME: str = "admin"
     QBIT_PASSWORD: str = "adminadmin"
     QBIT_TAG_BOOSTED: str = "defibrillarr-boosted"
     QBIT_TAG_PROBATION: str = "defibrillarr-probation"
+
+    # Transmission Settings
+    TRANSMISSION_URL: str = "http://localhost:9091/transmission/rpc"
+    TRANSMISSION_USERNAME: str = ""
+    TRANSMISSION_PASSWORD: str = ""
 
     # Servarr Settings (Sonarr, Radarr, Lidarr)
     SONARR_URL: Optional[str] = None

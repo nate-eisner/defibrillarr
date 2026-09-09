@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Defibrillarr is a lightweight companion daemon for <strong>qBittorrent</strong>, <strong>Sonarr</strong>, <strong>Radarr</strong>, and <strong>Lidarr</strong>. It eliminates the common headache of downloads getting stuck at 0% or stalled due to dead trackers or inactive swarms.
+  Defibrillarr is a lightweight companion daemon for <strong>qBittorrent</strong>, <strong>Transmission</strong>, <strong>Sonarr</strong>, <strong>Radarr</strong>, and <strong>Lidarr</strong>. It eliminates the common headache of downloads getting stuck at 0% or stalled due to dead trackers or inactive swarms.
 </p>
 
 ---
@@ -19,12 +19,12 @@
 Defibrillarr runs a continuous **two-stage rescue pipeline**:
 
 ```
-                         [ Torrent Stalled in qBittorrent ]
-                                        │
-                                        ▼
-                         ┌─────────────────────────────┐
-                         │ Stage 1: Swarm Booster      │
-                         └──────────────┬──────────────┘
+                  [ Torrent Stalled in qBittorrent / Transmission ]
+                                         │
+                                         ▼
+                          ┌─────────────────────────────┐
+                          │ Stage 1: Swarm Booster      │
+                          └──────────────┬──────────────┘
                                         │
                          • Injects live, verified public trackers
                          • Forces re-announce to DHT & trackers
@@ -115,9 +115,13 @@ services:
 | `MIN_DOWNLOAD_SPEED_KBPS` | `10.0` | Downloads slower than this with 0 seeds count as stalled |
 | `AUTO_FAILOVER_ENABLED` | `true` | When `false`, requires 1-click confirmation in the Web UI |
 | `AUTO_BOOST_CADENCE_MINUTES` | `120` | Interval to automatically re-inject verified trackers & re-announce (0 = disabled) |
+| `TORRENT_CLIENT` | `qbittorrent` | Active download client (`qbittorrent` or `transmission`) |
 | `QBIT_URL` | `http://localhost:8080` | URL to qBittorrent Web UI |
 | `QBIT_USERNAME` | `admin` | qBittorrent username |
 | `QBIT_PASSWORD` | `adminadmin` | qBittorrent password |
+| `TRANSMISSION_URL` | `http://localhost:9091/transmission/rpc` | URL to Transmission RPC endpoint |
+| `TRANSMISSION_USERNAME` | *(None)* | Transmission RPC username (optional) |
+| `TRANSMISSION_PASSWORD` | *(None)* | Transmission RPC password (optional) |
 | `SONARR_URL` | *(None)* | URL to Sonarr (e.g., `http://192.168.1.100:8989`) |
 | `SONARR_API_KEY` | *(None)* | Sonarr API Key (`Settings` &rarr; `General`) |
 | `RADARR_URL` | *(None)* | URL to Radarr (e.g., `http://192.168.1.100:7878`) |

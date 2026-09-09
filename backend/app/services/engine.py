@@ -15,7 +15,8 @@ from app.models import (
     SystemOverview,
     HistoryEvent,
 )
-from app.clients.qbittorrent import QBittorrentClient
+from app.clients.base import BaseTorrentClient
+from app.clients.factory import create_torrent_client
 from app.clients.servarr import ServarrClient
 from app.services.tracker_service import TrackerService
 
@@ -39,12 +40,8 @@ class DefibrillarrEngine:
     def __init__(self, config: Settings, tracker_service: TrackerService):
         self.config = config
         self.trackers = tracker_service
-        self.qbit = QBittorrentClient(
-            base_url=config.QBIT_URL,
-            username=config.QBIT_USERNAME,
-            password=config.QBIT_PASSWORD,
-            dry_run=config.DRY_RUN
-        )
+        self.client: BaseTorrentClient = create_torrent_client(config)
+        self.qbit = self.client  # Alias for backward compatibility
 
         self.servarr_clients: Dict[ServarrType, ServarrClient] = {}
         if config.SONARR_URL and config.SONARR_API_KEY:
@@ -103,7 +100,7 @@ class DefibrillarrEngine:
         self._running = False
         if self._task:
             self._task.cancel()
-        await self.qbit.close()
+        await self.client.close()
         for client in self.servarr_clients.values():
             await client.close()
         logger.info("Defibrillarr engine stopped.")
@@ -123,15 +120,15 @@ class DefibrillarrEngine:
         """Check connection and versions across all configured clients."""
         services: Dict[str, ServiceHealth] = {}
 
-        # qBittorrent
-        qbit_ver = await self.qbit.get_version()
-        services["qbittorrent"] = ServiceHealth(
-            name="qBittorrent",
+        # Torrent Client (qBittorrent or Transmission)
+        client_ver = await self.client.get_version()
+        services[self.client.client_id] = ServiceHealth(
+            name=self.client.client_name,
             type="client",
-            url=self.config.QBIT_URL,
-            connected=bool(qbit_ver),
-            version=qbit_ver,
-            error=None if qbit_ver else "Unable to connect or authenticate"
+            url=self.client.web_url,
+            connected=bool(client_ver),
+            version=client_ver,
+            error=None if client_ver else "Unable to connect or authenticate"
         )
 
         # Servarr clients
@@ -162,8 +159,8 @@ class DefibrillarrEngine:
         return services
 
     async def get_unified_queue(self) -> List[UnifiedTorrentItem]:
-        """Merge qBittorrent downloads with correlated Servarr queue data and rescue states."""
-        torrents = await self.qbit.get_torrents(filter_type="all")
+        """Merge torrent downloads with correlated Servarr queue data and rescue states."""
+        torrents = await self.client.get_torrents(filter_type="all")
 
         # Fetch Servarr queues
         servarr_queue_by_hash: Dict[str, Tuple[ServarrQueueItem, Dict[str, Any]]] = {}
@@ -190,20 +187,20 @@ class DefibrillarrEngine:
             ) if servarr_match else None
             servarr_queue_id = servarr_match[0].id if servarr_match else None
 
-            # Detect error from qBittorrent or Servarr
-            qbit_is_errored = t.state.lower() in ("error", "missingfiles")
+            # Detect error from download client or Servarr
+            client_is_errored = t.state.lower() in ("error", "missingfiles")
             servarr_error = None
             if servarr_match:
                 q_item = servarr_match[0]
                 if q_item.status.lower() in ("warning", "failed") or (q_item.error_message and len(q_item.error_message.strip()) > 0):
                     servarr_error = q_item.error_message or f"Servarr queue reported status: {q_item.status}"
 
-            is_errored = qbit_is_errored or bool(servarr_error)
+            is_errored = client_is_errored or bool(servarr_error)
             error_details = None
-            if qbit_is_errored and servarr_error:
-                error_details = f"qBittorrent ({t.state}): {servarr_error}"
-            elif qbit_is_errored:
-                error_details = f"qBittorrent error: state '{t.state}'"
+            if client_is_errored and servarr_error:
+                error_details = f"{self.client.client_name} ({t.state}): {servarr_error}"
+            elif client_is_errored:
+                error_details = f"{self.client.client_name} error: state '{t.state}'"
             elif servarr_error:
                 error_details = f"{servarr_app.value.capitalize() if servarr_app else 'Servarr'} error: {servarr_error}"
 
@@ -265,7 +262,7 @@ class DefibrillarrEngine:
 
     async def run_cycle(self):
         """Single inspection and action cycle."""
-        torrents = await self.qbit.get_torrents(filter_type="all")
+        torrents = await self.client.get_torrents(filter_type="all")
         if not torrents:
             return
 
@@ -291,18 +288,18 @@ class DefibrillarrEngine:
             servarr_queue_id = servarr_match[0].id if servarr_match else None
             raw_record = servarr_match[1] if servarr_match else None
 
-            # Detect errors from qBittorrent or Servarr
-            qbit_is_errored = t.state.lower() in ("error", "missingfiles")
+            # Detect errors from download client or Servarr
+            client_is_errored = t.state.lower() in ("error", "missingfiles")
             servarr_error = None
             if servarr_match:
                 q_item = servarr_match[0]
                 if q_item.status.lower() in ("warning", "failed") or (q_item.error_message and len(q_item.error_message.strip()) > 0):
                     servarr_error = q_item.error_message or f"Servarr queue status: {q_item.status}"
 
-            is_errored = qbit_is_errored or bool(servarr_error)
+            is_errored = client_is_errored or bool(servarr_error)
 
             if is_errored:
-                error_msg = servarr_error or f"qBittorrent state '{t.state}'"
+                error_msg = servarr_error or f"{self.client.client_name} state '{t.state}'"
                 rec = self.stalled_records.get(t_hash)
                 if not rec:
                     rec = StalledRecord(t_hash)
@@ -319,12 +316,12 @@ class DefibrillarrEngine:
                     rec.servarr_queue_id = servarr_queue_id
                     rec.raw_servarr_record = raw_record
 
-                # Automated recovery attempt: try recheck & resume once for qBittorrent errors
-                if qbit_is_errored and not rec.recheck_attempted:
+                # Automated recovery attempt: try recheck & resume once for client errors
+                if client_is_errored and not rec.recheck_attempted:
                     rec.recheck_attempted = True
                     logger.info(f"[Auto-Repair] Torrent '{t.name}' is in error state ({t.state}). Attempting automatic force-recheck & resume...")
-                    await self.qbit.recheck(t.hash)
-                    await self.qbit.resume(t.hash)
+                    await self.client.recheck(t.hash)
+                    await self.client.resume(t.hash)
                     self.add_history(
                         t.hash, t.name, "auto_recheck_attempted",
                         f"Auto-repair: Force recheck and resume initiated for error state '{t.state}'.",
@@ -349,8 +346,8 @@ class DefibrillarrEngine:
                 elif (now - last_boost) >= timedelta(minutes=self.config.AUTO_BOOST_CADENCE_MINUTES):
                     trackers = self.trackers.get_trackers()
                     logger.info(f"[Cadence Auto-Boost] Injecting {len(trackers)} fresh trackers into '{t.name}' (cadence: {self.config.AUTO_BOOST_CADENCE_MINUTES}m)")
-                    await self.qbit.add_trackers(t.hash, trackers)
-                    await self.qbit.reannounce(t.hash)
+                    await self.client.add_trackers(t.hash, trackers)
+                    await self.client.reannounce(t.hash)
                     self.last_boosted_timestamps[t_hash] = now
                     self.add_history(
                         t.hash, t.name, "cadence_boost",
@@ -435,9 +432,9 @@ class DefibrillarrEngine:
         trackers = self.trackers.get_trackers()
         logger.info(f"[Stage 1] Injecting {len(trackers)} verified trackers into '{t.name}'...")
 
-        added = await self.qbit.add_trackers(t.hash, trackers)
-        await self.qbit.reannounce(t.hash)
-        await self.qbit.add_tags(t.hash, [self.config.QBIT_TAG_BOOSTED])
+        added = await self.client.add_trackers(t.hash, trackers)
+        await self.client.reannounce(t.hash)
+        await self.client.add_tags(t.hash, [self.config.QBIT_TAG_BOOSTED])
 
         rec.boosted_at = datetime.now(timezone.utc)
         self.last_boosted_timestamps[t.hash.lower()] = rec.boosted_at
@@ -478,13 +475,13 @@ class DefibrillarrEngine:
             return True
         else:
             # Not matched in Servarr queue or Servarr not configured
-            # Delete directly from qBittorrent if enabled
-            del_ok = await self.qbit.delete_torrent(t.hash, delete_files=True)
+            # Delete directly from download client if enabled
+            del_ok = await self.client.delete_torrent(t.hash, delete_files=True)
             rec.state = DefibrillarrState.FAILED_OVER
-            rec.status_message = "Removed dead torrent from qBittorrent (not linked to Servarr queue)."
+            rec.status_message = f"Removed dead torrent from {self.client.client_name} (not linked to Servarr queue)."
             self.add_history(
                 t.hash, t.name, "torrent_deleted",
-                "Removed dead torrent from qBittorrent. Not linked to any active Servarr queue item.",
+                f"Removed dead torrent from {self.client.client_name}. Not linked to any active Servarr queue item.",
                 success=del_ok
             )
             return del_ok
@@ -492,7 +489,7 @@ class DefibrillarrEngine:
     # Manual action triggers
     async def manual_boost(self, torrent_hash: str) -> bool:
         """Manually trigger immediate tracker injection & re-announce."""
-        torrents = await self.qbit.get_torrents(filter_type="all")
+        torrents = await self.client.get_torrents(filter_type="all")
         matched = next((t for t in torrents if t.hash.lower() == torrent_hash.lower()), None)
         if not matched:
             return False
@@ -506,14 +503,14 @@ class DefibrillarrEngine:
         return True
 
     async def manual_recheck(self, torrent_hash: str) -> bool:
-        """Manually trigger force recheck & resume in qBittorrent to repair errors."""
-        torrents = await self.qbit.get_torrents(filter_type="all")
+        """Manually trigger force recheck & resume in download client to repair errors."""
+        torrents = await self.client.get_torrents(filter_type="all")
         matched = next((t for t in torrents if t.hash.lower() == torrent_hash.lower()), None)
         if not matched:
             return False
 
-        recheck_ok = await self.qbit.recheck(matched.hash)
-        resume_ok = await self.qbit.resume(matched.hash)
+        recheck_ok = await self.client.recheck(matched.hash)
+        resume_ok = await self.client.resume(matched.hash)
 
         rec = self.stalled_records.get(torrent_hash.lower())
         if rec:
@@ -530,7 +527,7 @@ class DefibrillarrEngine:
 
     async def manual_failover(self, torrent_hash: str) -> bool:
         """Manually trigger immediate blocklist, delete, and replacement search."""
-        torrents = await self.qbit.get_torrents(filter_type="all")
+        torrents = await self.client.get_torrents(filter_type="all")
         matched = next((t for t in torrents if t.hash.lower() == torrent_hash.lower()), None)
         if not matched:
             return False

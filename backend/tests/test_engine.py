@@ -249,3 +249,56 @@ async def test_engine_errored_torrent_handling():
 
     await engine.stop()
 
+
+@pytest.mark.asyncio
+async def test_engine_with_transmission():
+    config = Settings(
+        DRY_RUN=True,
+        TORRENT_CLIENT="transmission",
+        TRANSMISSION_URL="http://mock-trans:9091/transmission/rpc",
+        STALL_THRESHOLD_MINUTES=1,
+        RESCUE_GRACE_PERIOD_MINUTES=5,
+        MIN_DOWNLOAD_SPEED_KBPS=10.0,
+    )
+    tracker_service = TrackerService(urls=[])
+    engine = DefibrillarrEngine(config=config, tracker_service=tracker_service)
+
+    assert engine.client.client_id == "transmission"
+    assert engine.client.client_name == "Transmission"
+
+    async def mock_version():
+        return "4.0.5"
+
+    async def mock_get_torrents(filter_type="all"):
+        return [
+            TorrentInfo(
+                hash="transhash123",
+                name="Transmission.Stalled.Show",
+                state="stalledDL",
+                progress=0.1,
+                dlspeed=0,
+                upspeed=0,
+                eta=0,
+                num_seeds=0,
+                num_leechs=0,
+                added_on=1600000000,
+            )
+        ]
+
+    engine.client.get_version = mock_version
+    engine.client.get_torrents = mock_get_torrents
+
+    overview = await engine.get_overview()
+    assert "transmission" in overview.services
+    assert overview.services["transmission"].connected is True
+    assert overview.services["transmission"].version == "4.0.5"
+
+    # Verify manual boost works with Transmission client
+    boost_ok = await engine.manual_boost("transhash123")
+    assert boost_ok is True
+    assert len(engine.history) == 1
+    assert engine.history[0].action == "trackers_injected"
+
+    await engine.stop()
+
+

@@ -17,10 +17,16 @@ services:
       - MIN_DOWNLOAD_SPEED_KBPS=10.0
       - AUTO_FAILOVER_ENABLED=true
       - AUTO_BOOST_CADENCE_MINUTES=120
-      # Point to your Unraid host or container network addresses:
+      # Torrent Client: 'qbittorrent' or 'transmission'
+      - TORRENT_CLIENT=qbittorrent
+      # qBittorrent:
       - QBIT_URL=http://qbittorrent:8080
       - QBIT_USERNAME=admin
       - QBIT_PASSWORD=adminadmin
+      # Transmission (if using TORRENT_CLIENT=transmission):
+      # - TRANSMISSION_URL=http://transmission:9091/transmission/rpc
+      # - TRANSMISSION_USERNAME=
+      # - TRANSMISSION_PASSWORD=
       - SONARR_URL=http://sonarr:8989
       - SONARR_API_KEY=your_sonarr_api_key_here
       - RADARR_URL=http://radarr:7878

@@ -2,12 +2,17 @@ import logging
 from typing import List, Dict, Any, Optional
 import httpx
 from app.models import TorrentInfo
+from app.clients.base import BaseTorrentClient
 
 logger = logging.getLogger("defibrillarr.qbittorrent")
 
-class QBittorrentClient:
+class QBittorrentClient(BaseTorrentClient):
+    client_id: str = "qbittorrent"
+    client_name: str = "qBittorrent"
+
     def __init__(self, base_url: str, username: str = "admin", password: str = "adminadmin", dry_run: bool = False):
         self.base_url = base_url.rstrip("/")
+        self.web_url = self.base_url
         self.username = username
         self.password = password
         self.dry_run = dry_run

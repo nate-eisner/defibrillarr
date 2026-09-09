@@ -167,7 +167,7 @@
             <span>Servarr & Torrent Swarm Queue</span>
             <span id="queueCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0</span>
           </h2>
-          <p class="text-xs text-slate-400 mt-0.5">Real-time status of downloads correlated across qBittorrent, Sonarr, Radarr, and Lidarr</p>
+          <p class="text-xs text-slate-400 mt-0.5">Real-time status of downloads correlated across your torrent client, Sonarr, Radarr, and Lidarr</p>
         </div>
         <div class="text-xs text-slate-500 flex items-center space-x-2">
           <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block pulse-indicator"></span>
@@ -278,7 +278,7 @@
           </thead>
           <tbody id="queueTableBody" class="divide-y divide-slate-800/60">
             <tr>
-              <td colspan="7" class="px-6 py-8 text-center text-slate-500">Loading downloads from qBittorrent & Servarr...</td>
+              <td colspan="7" class="px-6 py-8 text-center text-slate-500">Loading downloads from client & Servarr...</td>
             </tr>
           </tbody>
         </table>
@@ -453,12 +453,19 @@
       activeConfirmCallback = null;
     }
 
+    let activeClientName = 'Torrent Client';
+
     // Service Cards with Interactive Links
     function renderServices(services) {
       const container = document.getElementById('servicesGrid');
       container.innerHTML = '';
 
-      const serviceKeys = ['qbittorrent', 'sonarr', 'radarr', 'lidarr'];
+      // Identify active download client dynamically
+      const clientKey = Object.keys(services).find(k => services[k]?.type === 'client') || 'qbittorrent';
+      if (services[clientKey]?.name) {
+        activeClientName = services[clientKey].name;
+      }
+      const serviceKeys = [clientKey, 'sonarr', 'radarr', 'lidarr'];
       for (const key of serviceKeys) {
         const s = services[key];
         if (!s) continue;
@@ -716,10 +723,10 @@
         let actionHtml = '';
         if (isItemError) {
           actionHtml = `
-            <button onclick="confirmRecheck('${item.hash}', '${encodeURIComponent(item.servarr_media_title || item.name)}')" class="px-2.5 py-1 text-xs rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition flex-inline items-center space-x-1" title="Force recheck and resume torrent in qBittorrent">
+            <button onclick="confirmRecheck('${item.hash}', '${encodeURIComponent(item.servarr_media_title || item.name)}')" class="px-2.5 py-1 text-xs rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 transition flex-inline items-center space-x-1" title="Force recheck and resume torrent">
               <span>Recheck / Fix</span>
             </button>
-            <button onclick="confirmFailover('${item.hash}', '${encodeURIComponent(item.servarr_media_title || item.name)}', '${item.servarr_app || ''}')" class="px-2.5 py-1 text-xs rounded bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow-sm transition" title="Remove stuck release from Servarr/qBit and search healthy replacement">
+            <button onclick="confirmFailover('${item.hash}', '${encodeURIComponent(item.servarr_media_title || item.name)}', '${item.servarr_app || ''}')" class="px-2.5 py-1 text-xs rounded bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow-sm transition" title="Remove stuck release from Servarr/client and search healthy replacement">
               <span>Remove & Re-search</span>
             </button>
           `;
@@ -831,7 +838,7 @@
       showCustomConfirm({
         title: "Execute Failover & Search",
         subtitle: "Stage 2 Rescue",
-        message: `This will <strong>delete</strong> the stuck torrent from qBittorrent, <strong>blocklist</strong> the release in ${appText}, and immediately trigger an <strong>automatic search</strong> for a healthy replacement: <br><strong class="text-white mt-1 block">${name}</strong>`,
+        message: `This will <strong>delete</strong> the stuck torrent from ${activeClientName}, <strong>blocklist</strong> the release in ${appText}, and immediately trigger an <strong>automatic search</strong> for a healthy replacement: <br><strong class="text-white mt-1 block">${name}</strong>`,
         confirmText: "Failover & Find Replacement",
         confirmColor: "rose",
         onConfirm: async () => {
@@ -853,7 +860,7 @@
       showCustomConfirm({
         title: "Recheck & Repair Torrent",
         subtitle: "Integrity Verification",
-        message: `Trigger a force recheck of all downloaded chunks and unpause the torrent in qBittorrent: <br><strong class="text-white mt-1 block">${name}</strong>`,
+        message: `Trigger a force recheck of all downloaded chunks and unpause the torrent in ${activeClientName}: <br><strong class="text-white mt-1 block">${name}</strong>`,
         confirmText: "Force Recheck & Resume",
         confirmColor: "purple",
         onConfirm: async () => {

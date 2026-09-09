@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/nate-eisner/defibrillarr/issues</Support>
   <Project>https://github.com/nate-eisner/defibrillarr</Project>
-  <Overview>Defibrillarr is a lightweight companion service for Unraid that automatically revives stalled downloads in qBittorrent by injecting verified live public trackers. If a torrent remains dead after a grace period, Defibrillarr coordinates with Sonarr, Radarr, and Lidarr to delete the stuck torrent, blocklist the bad release, and trigger an immediate search for a healthy replacement.</Overview>
+  <Overview>Defibrillarr is a lightweight companion service for Unraid that automatically revives stalled downloads in qBittorrent and Transmission by injecting verified live public trackers. If a torrent remains dead after a grace period, Defibrillarr coordinates with Sonarr, Radarr, and Lidarr to delete the stuck torrent, blocklist the bad release, and trigger an immediate search for a healthy replacement.</Overview>
   <Category>Downloaders: MediaApp:Video MediaApp:Music Tools:Utilities</Category>
   <WebUI>http://[IP]:[PORT:8787]/</WebUI>
   <TemplateURL/>
@@ -22,9 +22,13 @@
   <DonateLink/>
   <Requires/>
   <Config Name="WebUI Port" Target="8787" Default="8787" Mode="tcp" Description="Web UI port for Defibrillarr dashboard" Type="Port" Display="always" Required="true" Mask="false">8787</Config>
-  <Config Name="qBittorrent URL" Target="QBIT_URL" Default="http://192.168.1.100:8080" Description="URL of your qBittorrent Web UI" Type="Variable" Display="always" Required="true" Mask="false">http://192.168.1.100:8080</Config>
-  <Config Name="qBittorrent Username" Target="QBIT_USERNAME" Default="admin" Description="qBittorrent Web UI username" Type="Variable" Display="always" Required="true" Mask="false">admin</Config>
-  <Config Name="qBittorrent Password" Target="QBIT_PASSWORD" Default="adminadmin" Description="qBittorrent Web UI password" Type="Variable" Display="always" Required="true" Mask="true">adminadmin</Config>
+  <Config Name="Torrent Client" Target="TORRENT_CLIENT" Default="qbittorrent" Description="Download client type: qbittorrent or transmission" Type="Variable" Display="always" Required="true" Mask="false">qbittorrent</Config>
+  <Config Name="qBittorrent URL" Target="QBIT_URL" Default="http://192.168.1.100:8080" Description="URL of your qBittorrent Web UI" Type="Variable" Display="always" Required="false" Mask="false">http://192.168.1.100:8080</Config>
+  <Config Name="qBittorrent Username" Target="QBIT_USERNAME" Default="admin" Description="qBittorrent Web UI username" Type="Variable" Display="always" Required="false" Mask="false">admin</Config>
+  <Config Name="qBittorrent Password" Target="QBIT_PASSWORD" Default="adminadmin" Description="qBittorrent Web UI password" Type="Variable" Display="always" Required="false" Mask="true">adminadmin</Config>
+  <Config Name="Transmission RPC URL" Target="TRANSMISSION_URL" Default="http://192.168.1.100:9091/transmission/rpc" Description="URL of Transmission RPC endpoint (if TORRENT_CLIENT=transmission)" Type="Variable" Display="always" Required="false" Mask="false">http://192.168.1.100:9091/transmission/rpc</Config>
+  <Config Name="Transmission Username" Target="TRANSMISSION_USERNAME" Default="" Description="Transmission RPC username (leave blank if none)" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Transmission Password" Target="TRANSMISSION_PASSWORD" Default="" Description="Transmission RPC password (leave blank if none)" Type="Variable" Display="always" Required="false" Mask="true"/>
   <Config Name="Sonarr URL" Target="SONARR_URL" Default="http://192.168.1.100:8989" Description="URL of your Sonarr instance (leave blank if not using)" Type="Variable" Display="always" Required="false" Mask="false">http://192.168.1.100:8989</Config>
   <Config Name="Sonarr API Key" Target="SONARR_API_KEY" Default="" Description="Sonarr API Key (Settings -> General -> API Key)" Type="Variable" Display="always" Required="false" Mask="true"/>
   <Config Name="Radarr URL" Target="RADARR_URL" Default="http://192.168.1.100:7878" Description="URL of your Radarr instance (leave blank if not using)" Type="Variable" Display="always" Required="false" Mask="false">http://192.168.1.100:7878</Config>

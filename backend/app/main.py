@@ -69,7 +69,7 @@ async def boost_torrent(torrent_hash: str):
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Torrent with hash {torrent_hash} not found in qBittorrent"
+            detail=f"Torrent with hash {torrent_hash} not found in torrent client"
         )
     return {"status": "success", "message": f"Trackers injected and re-announce sent to {torrent_hash}"}
 
@@ -80,19 +80,19 @@ async def failover_torrent(torrent_hash: str):
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Torrent with hash {torrent_hash} not found in qBittorrent"
+            detail=f"Torrent with hash {torrent_hash} not found in torrent client"
         )
     return {"status": "success", "message": f"Failover executed for {torrent_hash}"}
 
 @app.post("/api/torrents/{torrent_hash}/reannounce")
 async def reannounce_torrent(torrent_hash: str):
-    """Triggers qBittorrent re-announce for a torrent."""
-    success = await engine.qbit.reannounce(torrent_hash)
+    """Triggers torrent client re-announce for a torrent."""
+    success = await engine.client.reannounce(torrent_hash)
     return {"status": "success" if success else "failed"}
 
 @app.post("/api/torrents/{torrent_hash}/recheck")
 async def recheck_torrent(torrent_hash: str):
-    """Manually triggers force recheck and resume in qBittorrent to repair errored download."""
+    """Manually triggers force recheck and resume in torrent client to repair errored download."""
     success = await engine.manual_recheck(torrent_hash)
     if not success:
         raise HTTPException(
